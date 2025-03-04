@@ -1,0 +1,404 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kobo_kobo/features/navigation/navigation.dart';
+import 'package:kobo_kobo/features/topUp/top_up.dart';
+import 'package:kobo_kobo/features/transfer/transfer.dart';
+import 'package:kobo_kobo/functional_util/functional_utils.dart';
+import 'package:kobo_kobo/ui_widgets/ui_widgets.dart';
+import 'package:provider/provider.dart';
+
+class TopUpScreen extends StatefulWidget {
+  const TopUpScreen({super.key});
+
+  @override
+  State<TopUpScreen> createState() => _TopUpScreenState();
+}
+
+class _TopUpScreenState extends State<TopUpScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  TextEditingController accTEC = TextEditingController();
+  TextEditingController bankTEC = TextEditingController();
+
+  int activeTabIndex = 0;
+  int? selectedIndex;
+
+  late TransferVm vm;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _tabController =
+        TabController(vsync: this, length: 2, initialIndex: activeTabIndex);
+
+    _tabController.addListener(() {
+      setState(() {
+        activeTabIndex = _tabController.index;
+      });
+    });
+    Future.microtask(() {
+      vm.showBtmSheet = false;
+      vm.fetchContacts();
+      if (vm.activeIndex != null) {
+        setState(() {
+          _tabController.animateTo(vm.activeIndex!);
+          activeTabIndex = _tabController.index;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final money = context.money();
+    vm = context.watch<TransferVm>();
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      if (vm.showBtmSheet && mounted) {
+        AppNavigator.of(context).push(
+          AppRoutes.topUpDialog,
+          args: GenericDialogueArgs(
+            title: 'Success',
+            icon: LocalSvgImage(successSvg),
+            btn1Title: 'Generate Receipt',
+            btn2Title: 'Done',
+            btn1Color: AppColors.appPrimaryColor,
+            btn2Color: AppColors.appPrimaryColor,
+            onBtn1PressedRoute: AppRoutes.transGenericReceipt,
+            onBtn2PressedRoute: AppRoutes.home,
+          ),
+        );
+      }
+    });
+
+    return AppScaffoldWidget(
+      appBar: const CustomAppBar(),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            YBox(Insets.dim_22.h),
+            Text(
+              'Airtime',
+              style: context.textTheme.bodySmall!.copyWith(
+                fontSize: Insets.dim_18.sp,
+                fontWeight: FontWeight.w600,
+                color: AppColors.black,
+              ),
+            ),
+            YBox(Insets.dim_18.h),
+            Text(
+              'Source Account',
+              style: context.textTheme.bodySmall!.copyWith(
+                fontSize: Insets.dim_16.sp,
+                color: AppColors.black.withOpacity(0.7),
+              ),
+            ),
+            YBox(Insets.dim_10.h),
+            const InAppSourceAccount(),
+            YBox(Insets.dim_16.h),
+            TabBar(
+              controller: _tabController,
+              tabs: [
+                _tabWidget('Airtime', 0),
+                _tabWidget('Data Bundle', 1),
+              ],
+              padding: EdgeInsets.zero,
+              indicatorColor: AppColors.white,
+              indicatorPadding: EdgeInsets.only(right: Insets.dim_40.w),
+              unselectedLabelColor: AppColors.borderColor,
+              dividerColor: AppColors.white,
+              overlayColor: const WidgetStatePropertyAll(
+                AppColors.white,
+              ),
+              labelPadding: EdgeInsets.only(bottom: Insets.dim_6.h),
+              unselectedLabelStyle: context.textTheme.bodyMedium!
+                  .copyWith(color: AppColors.borderColor),
+            ),
+            YBox(Insets.dim_12.h),
+            Text(
+              'Enter the details to buy airtime',
+              style: context.textTheme.bodySmall!.copyWith(
+                color: AppColors.black.withOpacity(.8),
+                fontSize: Insets.dim_16.sp,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            YBox(Insets.dim_12.h),
+            PhoneNumberTextFormField(
+              controller: TextEditingController(
+                text: vm.selectedContacts.phones.firstOrNull?.number,
+              ),
+              textFieldIcon: LocalImage(
+                phoneBookPng,
+                height: Insets.dim_14.h,
+                width: Insets.dim_14.w,
+              ).onTap(() {
+                if (vm.permissionDenied) {
+                  showInfoNotification('Permission Denied. Please try again');
+                  showModalBottomSheet(
+                      context: context,
+                      builder: (context) {
+                        return Container(
+                          height: context.getHeight(0.15.h),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Insets.dim_20.w,
+                          ),
+                          child: Column(
+                            children: [
+                              YBox(Insets.dim_20.h),
+                              Text(
+                                'Permission Denied',
+                                style: context.textTheme.bodySmall!.copyWith(
+                                  color: AppColors.black,
+                                  fontSize: Insets.dim_16.sp,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              YBox(Insets.dim_12.h),
+                              AppButton(
+                                  textTitle: 'Retry',
+                                  action: () {
+                                    vm.onRetry();
+                                    AppNavigator.of(context).popDialog();
+                                  }),
+                            ],
+                          ),
+                        );
+                      });
+                } else {
+                  AppNavigator.of(context).push(AppRoutes.phoneBook);
+                }
+              }),
+            ),
+            YBox(Insets.dim_12.h),
+            ClickableFormField(
+              labelText: 'Network Provider',
+              hintText: 'Select network provider',
+              controller: bankTEC,
+              suffixIcon: Icon(
+                Icons.arrow_drop_down,
+                color: AppColors.black,
+                size: Insets.dim_24.sp,
+              ),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: AppColors.white,
+                  builder: (context) {
+                    return Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: Insets.dim_20.w,
+                      ),
+                      height: context.getHeight(0.8.h),
+                      child: Column(
+                        children: [
+                          YBox(Insets.dim_20.h),
+                          SearchTextInputField(
+                            title: 'Search Bank',
+                            suffixIcon: Icon(
+                              Icons.search,
+                              color: AppColors.black,
+                              size: Insets.dim_24.sp,
+                            ),
+                          ),
+                          YBox(Insets.dim_12.h),
+                          Expanded(
+                            child: ListView.builder(
+                                itemCount: 10,
+                                itemBuilder: (context, index) {
+                                  return Container(
+                                    height: Insets.dim_100.h,
+                                    decoration: BoxDecoration(
+                                      color: index.isEven
+                                          ? AppColors.appPrimaryColor
+                                          : AppColors.white,
+                                    ),
+                                    child: Text('Item $index'),
+                                  );
+                                }),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            YBox(Insets.dim_12.h),
+            if (activeTabIndex == 0) ...[
+              AppTextFormField(
+                labelText: 'Amount',
+                hintText: '0000',
+                inputType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (value) => Validators.validateString()(value),
+              ),
+              YBox(Insets.dim_12.h),
+            ],
+            if (activeTabIndex == 1) ...[
+              Text(
+                'Choose Bundle',
+                style: context.textTheme.bodySmall!.copyWith(
+                  color: AppColors.black.withOpacity(.8),
+                  fontSize: Insets.dim_16.sp,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              YBox(Insets.dim_10.h),
+              SizedBox(
+                height: context.getHeight(0.3.h),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: 10,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedIndex = index;
+                        });
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          vertical: Insets.dim_10.h,
+                          horizontal: Insets.dim_16.w,
+                        ),
+                        margin: EdgeInsets.only(bottom: Insets.dim_10.h),
+                        decoration: BoxDecoration(
+                          borderRadius: Corners.smBorder,
+                          border: Border.all(
+                            color: index.isEven
+                                ? AppColors.appPrimaryColor
+                                : AppColors.black.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${(index + 1) * 100}MB, Daily Plan',
+                              style: context.textTheme.bodySmall!.copyWith(
+                                fontSize: Insets.dim_14.sp,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.black.withOpacity(0.8),
+                              ),
+                            ),
+                            YBox(Insets.dim_8.h),
+                            Text(
+                              'Account ${index}ber',
+                              style: context.textTheme.bodySmall!.copyWith(
+                                fontSize: Insets.dim_14.sp,
+                                color: AppColors.black.withOpacity(0.7),
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              money.formatWithCurrencySymbol(
+                                (index + 1) * 100,
+                              ),
+                              style: context.textTheme.bodySmall!.copyWith(
+                                fontSize: Insets.dim_14.sp,
+                                color: AppColors.black.withOpacity(0.7),
+                              ),
+                            ),
+                            XBox(Insets.dim_8.w),
+                            Icon(
+                              selectedIndex == index
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank,
+                              color: selectedIndex == index
+                                  ? AppColors.appPrimaryColor
+                                  : AppColors.borderColor,
+                              size: Insets.dim_24.sp,
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            YBox(Insets.dim_20.h),
+            AppButton(
+              textTitle: 'Continue',
+              showLoading: vm.loading,
+              action: () {
+                AppNavigator.of(context).push(
+                  AppRoutes.topUpSummary,
+                  args: TopUpSummaryArgs(
+                    routeTo: AppRoutes.topUpSummaryPin,
+                    sheetTitle: 'Top Up Summary',
+                  ),
+                );
+              },
+            ),
+            YBox(Insets.dim_50.h),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabWidget(String title, int index) {
+    return Container(
+      width: context.getWidth(),
+      height: Insets.dim_40.h,
+      decoration: BoxDecoration(
+        color: index == activeTabIndex
+            ? AppColors.appPrimaryButton
+            : AppColors.white,
+        border: index == activeTabIndex
+            ? null
+            : Border.all(color: AppColors.appPrimaryButton),
+        borderRadius: Corners.smBorder,
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: Insets.dim_12.w,
+        vertical: Insets.dim_8.h,
+      ),
+      margin: EdgeInsets.only(
+        right: Insets.dim_12.w,
+      ),
+      child: FittedBox(
+        child: Text(
+          title,
+          style: context.textTheme.bodySmall!.copyWith(
+            fontWeight: FontWeight.w500,
+            fontSize: Insets.dim_14.sp,
+            color: index == activeTabIndex
+                ? AppColors.white
+                : AppColors.appPrimaryColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget checkBoxWidget(
+    BuildContext context, {
+    required Widget widget,
+  }) {
+    return Row(
+      children: [
+        widget,
+        Expanded(
+          child: Text(
+            'Save Beneficiary',
+            style: context.textTheme.bodySmall!.copyWith(
+              color: AppColors.black.withOpacity(0.7),
+              fontWeight: FontWeight.w400,
+              fontSize: Insets.dim_12.sp,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

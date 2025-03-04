@@ -1,0 +1,1 @@
+/Users/taiwoadisa/Documents/GitHub/kobo_kobo/build/app/intermediates/cxx/RelWithDebInfo/4j515b1t/obj/arm64-v8a

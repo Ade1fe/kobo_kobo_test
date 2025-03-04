@@ -1,0 +1,1199 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kobo_kobo/features/bills/bills.dart';
+import 'package:kobo_kobo/features/dashboard/dashboard.dart';
+import 'package:kobo_kobo/features/loans/screen/easi_loan/easy_loan_details_screen.dart';
+import 'package:kobo_kobo/features/loans/screen/loan_page.dart';
+// import 'package:kobo_kobo/features/loans/screen/loan_screen.dart';
+import 'package:kobo_kobo/features/navigation/navigation.dart';
+import 'package:kobo_kobo/features/savings/savings.dart';
+import 'package:kobo_kobo/features/splash/app_splash_screen.dart';
+import 'package:kobo_kobo/features/topUp/top_up.dart';
+import 'package:kobo_kobo/features/transfer/transfer.dart';
+import 'package:kobo_kobo/functional_util/functional_utils.dart';
+import 'package:kobo_kobo/ui_widgets/ui_widgets.dart';
+
+import '../../../more/screens/more_home_page.dart';
+
+final _savedArgs = {};
+
+final GlobalKey<NavigatorState> rootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _shellNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shell');
+
+///use the args registry for situations where multiple nested routes have different argument requirements
+T? registerArgs<T>(String key, Object? args) {
+  if (args == null) {
+    return null;
+  }
+  if (args is T) {
+    _savedArgs[key] = args;
+  }
+  return _savedArgs[key] as T;
+}
+
+GoRouter getBaseRouter() {
+  return GoRouter(
+    initialLocation: AppRoutes.root,
+    navigatorKey: rootNavigatorKey,
+    debugLogDiagnostics: kDebugMode,
+    routes: [
+      GoRoute(
+        path: AppRoutes.root,
+        builder: (context, state) {
+          return const SplashScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (context, state) {
+          return const SplashScreen();
+        },
+      ),
+      onboardingRouter(),
+      ...authRouter,
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (BuildContext context, GoRouterState state, Widget child) {
+          AfrTab? tab;
+          bool? hideNav;
+          if (state.fullPath != null) {
+            if (state.fullPath!.split('/')[1] == 'tab') {
+              final tabName = state.fullPath!.split('/')[2];
+              tab = AfrTabUtil.fromString(tabName);
+              try {
+                hideNav = state.fullPath!.split('/')[3].isNotEmpty;
+              } catch (e) {
+                hideNav = false;
+              }
+              if (tab == null) {
+                throw PageNotFoundException(state.fullPath!);
+              }
+            }
+          }
+
+          return PopScope(
+            canPop: false,
+            child: Scaffold(
+              body: Column(
+                children: [
+                  Expanded(child: child),
+                  if (tab != null)
+                    BottomNavigationContainer(
+                      selectedTab: tab,
+                      hideNav: hideNav ?? false,
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+        routes: <RouteBase>[
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (context, state) {
+              return const DashboardScreen();
+            },
+            routes: [
+              GoRoute(
+                path: AppRoutes.bills.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const BillsOptionsScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.billOptions.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: CableOptions(
+                        args: registerArgs<CableOptionsArgs>(
+                              AppRoutes.billOptions.routeSplitter(),
+                              state.extra,
+                            ) ??
+                            CableOptionsArgs.empty(),
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path:
+                            AppRoutes.electricityOptionsInputs.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: ElectricityPaymentScreen(
+                            args: registerArgs<CablePaymentArgs>(
+                                  AppRoutes.electricityOptionsInputs
+                                      .routeSplitter(),
+                                  state.extra,
+                                ) ??
+                                CablePaymentArgs.empty(),
+                          ),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.electricitySummary.routeSplitter(),
+                            pageBuilder: (context, state) {
+                              return DialogPage(
+                                barrierDismissible: true,
+                                useSafeArea: false,
+                                barrierColor: Colors.black.withOpacity(0.3),
+                                themes: InheritedTheme.capture(
+                                    from: context, to: context),
+                                builder: (_) {
+                                  return BillSummarySheet(
+                                    args: registerArgs<BillSummaryArgs>(
+                                          AppRoutes.electricitySummary
+                                              .routeSplitter(),
+                                          state.extra,
+                                        ) ??
+                                        BillSummaryArgs.empty(),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          GoRoute(
+                            path:
+                                AppRoutes.electricitySummaryPin.routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: BillPinScreen(
+                                args: registerArgs<BillPinArgs>(
+                                      AppRoutes.electricitySummaryPin
+                                          .routeSplitter(),
+                                      state.extra,
+                                    ) ??
+                                    BillPinArgs.empty(),
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                      GoRoute(
+                        path: AppRoutes.billOptionsChoice.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: CableTopUpScreen(
+                            args: registerArgs<CablePaymentArgs>(
+                                  AppRoutes.billOptionsChoice.routeSplitter(),
+                                  state.extra,
+                                ) ??
+                                CablePaymentArgs.empty(),
+                          ),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.billSummary.routeSplitter(),
+                            pageBuilder: (context, state) {
+                              return DialogPage(
+                                barrierDismissible: true,
+                                useSafeArea: false,
+                                barrierColor: Colors.black.withOpacity(0.3),
+                                themes: InheritedTheme.capture(
+                                    from: context, to: context),
+                                builder: (_) {
+                                  return BillSummarySheet(
+                                    args: registerArgs<BillSummaryArgs>(
+                                          AppRoutes.billSummary.routeSplitter(),
+                                          state.extra,
+                                        ) ??
+                                        BillSummaryArgs.empty(),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          GoRoute(
+                            path: AppRoutes.billSummaryPin.routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: BillPinScreen(
+                                args: registerArgs<BillPinArgs>(
+                                      AppRoutes.billSummaryPin.routeSplitter(),
+                                      state.extra,
+                                    ) ??
+                                    BillPinArgs.empty(),
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: AppRoutes.transGenericReceipt.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const ReceiptScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+              ),
+              GoRoute(
+                path: AppRoutes.topUp.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const TopUpScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.phoneBook.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: const ContactList(),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                  ),
+                  GoRoute(
+                    path: AppRoutes.topUpDialog.routeSplitter(),
+                    pageBuilder: (context, state) {
+                      return DialogPage(
+                        barrierDismissible: false,
+                        useSafeArea: false,
+                        barrierColor: Colors.black.withOpacity(0.3),
+                        themes:
+                            InheritedTheme.capture(from: context, to: context),
+                        builder: (_) {
+                          return GenericDialogueSheet(
+                            args: registerArgs<GenericDialogueArgs>(
+                              AppRoutes.topUpDialog.routeSplitter(),
+                              state.extra,
+                            )!,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: AppRoutes.topUpSummary.routeSplitter(),
+                    pageBuilder: (context, state) {
+                      return DialogPage(
+                        barrierDismissible: true,
+                        useSafeArea: false,
+                        barrierColor: Colors.black.withOpacity(0.3),
+                        themes:
+                            InheritedTheme.capture(from: context, to: context),
+                        builder: (_) {
+                          return TopUpSummarySheet(
+                            args: registerArgs<TopUpSummaryArgs>(
+                              AppRoutes.topUpSummary.routeSplitter(),
+                              state.extra,
+                            )!,
+                          );
+                        },
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.topUpSummaryPin.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: const TopUpPinScreen(),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: AppRoutes.transfer.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const TransferScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.bankTransfer.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: BankOrKoboAccountTransfer(
+                        args: registerArgs<BankOrKoboAccountTransferArgs>(
+                              AppRoutes.bankTransfer.routeSplitter(),
+                              state.extra,
+                            ) ??
+                            BankOrKoboAccountTransferArgs(koboAccount: false),
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.bankTransferDialog.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return GenericDialogueSheet(
+                                args: registerArgs<GenericDialogueArgs>(
+                                  AppRoutes.bankTransferDialog.routeSplitter(),
+                                  state.extra,
+                                )!,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: AppRoutes.bankTransferSummary.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return const TransSummarySheet();
+                            },
+                          );
+                        },
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.bankTransferSummaryPin
+                                .routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: TransferPinScreen(
+                                args: registerArgs<TransferPinArgs>(
+                                  AppRoutes.bankTransferSummaryPin
+                                      .routeSplitter(),
+                                  state.extra,
+                                )!,
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: AppRoutes.koboTransfer.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: BankOrKoboAccountTransfer(
+                        args: registerArgs<BankOrKoboAccountTransferArgs>(
+                              AppRoutes.koboTransfer.routeSplitter(),
+                              state.extra,
+                            ) ??
+                            BankOrKoboAccountTransferArgs(koboAccount: true),
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.transferDialog.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return GenericDialogueSheet(
+                                args: registerArgs<GenericDialogueArgs>(
+                                  AppRoutes.transferDialog.routeSplitter(),
+                                  state.extra,
+                                )!,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: AppRoutes.transferSummary.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return const TransSummarySheet();
+                            },
+                          );
+                        },
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.transferPin.routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: TransferPinScreen(
+                                args: registerArgs<TransferPinArgs>(
+                                  AppRoutes.transferPin.routeSplitter(),
+                                  state.extra,
+                                )!,
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: AppRoutes.savings.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const SavingsScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.savingsPinToTransStatus.routeSplitter(),
+                    pageBuilder: (context, state) {
+                      return DialogPage(
+                        barrierDismissible: true,
+                        useSafeArea: false,
+                        barrierColor: Colors.black.withOpacity(0.3),
+                        themes:
+                            InheritedTheme.capture(from: context, to: context),
+                        builder: (_) {
+                          return GenericDialogueSheet(
+                            args: registerArgs<GenericDialogueArgs>(
+                              AppRoutes.savingsPinToTransStatus.routeSplitter(),
+                              state.extra,
+                            )!,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: AppRoutes.savingsToPin.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: SavingsPinScreen(
+                        args: registerArgs<SavingsPinArgs>(
+                          AppRoutes.savingsToPin.routeSplitter(),
+                          state.extra,
+                        )!,
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                  ),
+                  GoRoute(
+                    path: AppRoutes.savingDetails.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: ReviewSavings(
+                        args: registerArgs<ReviewSavingsArgs>(
+                          AppRoutes.savingDetails.routeSplitter(),
+                          state.extra,
+                        )!,
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.savingDetailsWithdraw.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: PartialWithdrawalScreen(
+                            args: registerArgs<ReviewSavingsArgs>(
+                              AppRoutes.savingDetailsWithdraw.routeSplitter(),
+                              state.extra,
+                            )!,
+                          ),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.savingsWithdrawalToPin
+                                .routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: SavingsPinScreen(
+                                args: registerArgs<SavingsPinArgs>(
+                                  AppRoutes.savingsWithdrawalToPin
+                                      .routeSplitter(),
+                                  state.extra,
+                                )!,
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: AppRoutes.cards,
+            builder: (context, state) {
+              return const SizedBox.shrink();
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.loans,
+            builder: (context, state) {
+              return const LoanPage();
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.more,
+            builder: (context, state) {
+              // return const SizedBox.shrink();
+              return const MoreHomePage();
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.easyLoan,
+            builder: (context, state) {
+              return const EasyLoanDetailsScreen(
+                loan: {},
+              );
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+
+
+
+
+
+
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kobo_kobo/features/bills/bills.dart';
+import 'package:kobo_kobo/features/dashboard/dashboard.dart';
+import 'package:kobo_kobo/features/loans/screen/loan_page.dart';
+// import 'package:kobo_kobo/features/loans/screen/loan_screen.dart';
+import 'package:kobo_kobo/features/navigation/navigation.dart';
+import 'package:kobo_kobo/features/savings/savings.dart';
+import 'package:kobo_kobo/features/splash/app_splash_screen.dart';
+import 'package:kobo_kobo/features/topUp/top_up.dart';
+import 'package:kobo_kobo/features/transfer/transfer.dart';
+import 'package:kobo_kobo/functional_util/functional_utils.dart';
+import 'package:kobo_kobo/ui_widgets/ui_widgets.dart';
+
+import '../../../more/screens/more_home_page.dart';
+
+final _savedArgs = {};
+
+final GlobalKey<NavigatorState> rootNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _shellNavigatorKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shell');
+
+///use the args registry for situations where multiple nested routes have different argument requirements
+T? registerArgs<T>(String key, Object? args) {
+  if (args == null) {
+    return null;
+  }
+  if (args is T) {
+    _savedArgs[key] = args;
+  }
+  return _savedArgs[key] as T;
+}
+
+GoRouter getBaseRouter() {
+  return GoRouter(
+    initialLocation: AppRoutes.root,
+    navigatorKey: rootNavigatorKey,
+    debugLogDiagnostics: kDebugMode,
+    routes: [
+      GoRoute(
+        path: AppRoutes.root,
+        builder: (context, state) {
+          return const SplashScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (context, state) {
+          return const SplashScreen();
+        },
+      ),
+      onboardingRouter(),
+      ...authRouter,
+      ShellRoute(
+        navigatorKey: _shellNavigatorKey,
+        builder: (BuildContext context, GoRouterState state, Widget child) {
+          AfrTab? tab;
+          bool? hideNav;
+          if (state.fullPath != null) {
+            if (state.fullPath!.split('/')[1] == 'tab') {
+              final tabName = state.fullPath!.split('/')[2];
+              tab = AfrTabUtil.fromString(tabName);
+              try {
+                hideNav = state.fullPath!.split('/')[3].isNotEmpty;
+              } catch (e) {
+                hideNav = false;
+              }
+              if (tab == null) {
+                throw PageNotFoundException(state.fullPath!);
+              }
+            }
+          }
+
+          return PopScope(
+            canPop: false,
+            child: Scaffold(
+              body: Column(
+                children: [
+                  Expanded(child: child),
+                  if (tab != null)
+                    BottomNavigationContainer(
+                      selectedTab: tab,
+                      hideNav: hideNav ?? false,
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+        routes: <RouteBase>[
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (context, state) {
+              return const DashboardScreen();
+            },
+            routes: [
+              GoRoute(
+                path: AppRoutes.bills.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const BillsOptionsScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.billOptions.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: CableOptions(
+                        args: registerArgs<CableOptionsArgs>(
+                              AppRoutes.billOptions.routeSplitter(),
+                              state.extra,
+                            ) ??
+                            CableOptionsArgs.empty(),
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path:
+                            AppRoutes.electricityOptionsInputs.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: ElectricityPaymentScreen(
+                            args: registerArgs<CablePaymentArgs>(
+                                  AppRoutes.electricityOptionsInputs
+                                      .routeSplitter(),
+                                  state.extra,
+                                ) ??
+                                CablePaymentArgs.empty(),
+                          ),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.electricitySummary.routeSplitter(),
+                            pageBuilder: (context, state) {
+                              return DialogPage(
+                                barrierDismissible: true,
+                                useSafeArea: false,
+                                barrierColor: Colors.black.withOpacity(0.3),
+                                themes: InheritedTheme.capture(
+                                    from: context, to: context),
+                                builder: (_) {
+                                  return BillSummarySheet(
+                                    args: registerArgs<BillSummaryArgs>(
+                                          AppRoutes.electricitySummary
+                                              .routeSplitter(),
+                                          state.extra,
+                                        ) ??
+                                        BillSummaryArgs.empty(),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          GoRoute(
+                            path:
+                                AppRoutes.electricitySummaryPin.routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: BillPinScreen(
+                                args: registerArgs<BillPinArgs>(
+                                      AppRoutes.electricitySummaryPin
+                                          .routeSplitter(),
+                                      state.extra,
+                                    ) ??
+                                    BillPinArgs.empty(),
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                      GoRoute(
+                        path: AppRoutes.billOptionsChoice.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: CableTopUpScreen(
+                            args: registerArgs<CablePaymentArgs>(
+                                  AppRoutes.billOptionsChoice.routeSplitter(),
+                                  state.extra,
+                                ) ??
+                                CablePaymentArgs.empty(),
+                          ),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.billSummary.routeSplitter(),
+                            pageBuilder: (context, state) {
+                              return DialogPage(
+                                barrierDismissible: true,
+                                useSafeArea: false,
+                                barrierColor: Colors.black.withOpacity(0.3),
+                                themes: InheritedTheme.capture(
+                                    from: context, to: context),
+                                builder: (_) {
+                                  return BillSummarySheet(
+                                    args: registerArgs<BillSummaryArgs>(
+                                          AppRoutes.billSummary.routeSplitter(),
+                                          state.extra,
+                                        ) ??
+                                        BillSummaryArgs.empty(),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          GoRoute(
+                            path: AppRoutes.billSummaryPin.routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: BillPinScreen(
+                                args: registerArgs<BillPinArgs>(
+                                      AppRoutes.billSummaryPin.routeSplitter(),
+                                      state.extra,
+                                    ) ??
+                                    BillPinArgs.empty(),
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: AppRoutes.transGenericReceipt.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const ReceiptScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+              ),
+              GoRoute(
+                path: AppRoutes.topUp.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const TopUpScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.phoneBook.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: const ContactList(),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                  ),
+                  GoRoute(
+                    path: AppRoutes.topUpDialog.routeSplitter(),
+                    pageBuilder: (context, state) {
+                      return DialogPage(
+                        barrierDismissible: false,
+                        useSafeArea: false,
+                        barrierColor: Colors.black.withOpacity(0.3),
+                        themes:
+                            InheritedTheme.capture(from: context, to: context),
+                        builder: (_) {
+                          return GenericDialogueSheet(
+                            args: registerArgs<GenericDialogueArgs>(
+                              AppRoutes.topUpDialog.routeSplitter(),
+                              state.extra,
+                            )!,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: AppRoutes.topUpSummary.routeSplitter(),
+                    pageBuilder: (context, state) {
+                      return DialogPage(
+                        barrierDismissible: true,
+                        useSafeArea: false,
+                        barrierColor: Colors.black.withOpacity(0.3),
+                        themes:
+                            InheritedTheme.capture(from: context, to: context),
+                        builder: (_) {
+                          return TopUpSummarySheet(
+                            args: registerArgs<TopUpSummaryArgs>(
+                              AppRoutes.topUpSummary.routeSplitter(),
+                              state.extra,
+                            )!,
+                          );
+                        },
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.topUpSummaryPin.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: const TopUpPinScreen(),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: AppRoutes.transfer.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const TransferScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.bankTransfer.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: BankOrKoboAccountTransfer(
+                        args: registerArgs<BankOrKoboAccountTransferArgs>(
+                              AppRoutes.bankTransfer.routeSplitter(),
+                              state.extra,
+                            ) ??
+                            BankOrKoboAccountTransferArgs(koboAccount: false),
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.bankTransferDialog.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return GenericDialogueSheet(
+                                args: registerArgs<GenericDialogueArgs>(
+                                  AppRoutes.bankTransferDialog.routeSplitter(),
+                                  state.extra,
+                                )!,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: AppRoutes.bankTransferSummary.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return const TransSummarySheet();
+                            },
+                          );
+                        },
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.bankTransferSummaryPin
+                                .routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: TransferPinScreen(
+                                args: registerArgs<TransferPinArgs>(
+                                  AppRoutes.bankTransferSummaryPin
+                                      .routeSplitter(),
+                                  state.extra,
+                                )!,
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: AppRoutes.koboTransfer.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: BankOrKoboAccountTransfer(
+                        args: registerArgs<BankOrKoboAccountTransferArgs>(
+                              AppRoutes.koboTransfer.routeSplitter(),
+                              state.extra,
+                            ) ??
+                            BankOrKoboAccountTransferArgs(koboAccount: true),
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.transferDialog.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return GenericDialogueSheet(
+                                args: registerArgs<GenericDialogueArgs>(
+                                  AppRoutes.transferDialog.routeSplitter(),
+                                  state.extra,
+                                )!,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: AppRoutes.transferSummary.routeSplitter(),
+                        pageBuilder: (context, state) {
+                          return DialogPage(
+                            barrierDismissible: true,
+                            useSafeArea: false,
+                            barrierColor: Colors.black.withOpacity(0.3),
+                            themes: InheritedTheme.capture(
+                                from: context, to: context),
+                            builder: (_) {
+                              return const TransSummarySheet();
+                            },
+                          );
+                        },
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.transferPin.routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: TransferPinScreen(
+                                args: registerArgs<TransferPinArgs>(
+                                  AppRoutes.transferPin.routeSplitter(),
+                                  state.extra,
+                                )!,
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: AppRoutes.savings.routeSplitter(),
+                pageBuilder: (context, state) => CustomPageTransition(
+                  widget: const SavingsScreen(),
+                  direction: AxisDirection.up,
+                  pageKey: state.pageKey,
+                  durationInMillIs: 300,
+                ),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.savingsPinToTransStatus.routeSplitter(),
+                    pageBuilder: (context, state) {
+                      return DialogPage(
+                        barrierDismissible: true,
+                        useSafeArea: false,
+                        barrierColor: Colors.black.withOpacity(0.3),
+                        themes:
+                            InheritedTheme.capture(from: context, to: context),
+                        builder: (_) {
+                          return GenericDialogueSheet(
+                            args: registerArgs<GenericDialogueArgs>(
+                              AppRoutes.savingsPinToTransStatus.routeSplitter(),
+                              state.extra,
+                            )!,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: AppRoutes.savingsToPin.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: SavingsPinScreen(
+                        args: registerArgs<SavingsPinArgs>(
+                          AppRoutes.savingsToPin.routeSplitter(),
+                          state.extra,
+                        )!,
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                  ),
+                  GoRoute(
+                    path: AppRoutes.savingDetails.routeSplitter(),
+                    pageBuilder: (context, state) => CustomPageTransition(
+                      widget: ReviewSavings(
+                        args: registerArgs<ReviewSavingsArgs>(
+                          AppRoutes.savingDetails.routeSplitter(),
+                          state.extra,
+                        )!,
+                      ),
+                      direction: AxisDirection.up,
+                      pageKey: state.pageKey,
+                      durationInMillIs: 300,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: AppRoutes.savingDetailsWithdraw.routeSplitter(),
+                        pageBuilder: (context, state) => CustomPageTransition(
+                          widget: PartialWithdrawalScreen(
+                            args: registerArgs<ReviewSavingsArgs>(
+                              AppRoutes.savingDetailsWithdraw.routeSplitter(),
+                              state.extra,
+                            )!,
+                          ),
+                          direction: AxisDirection.up,
+                          pageKey: state.pageKey,
+                          durationInMillIs: 300,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: AppRoutes.savingsWithdrawalToPin
+                                .routeSplitter(),
+                            pageBuilder: (context, state) =>
+                                CustomPageTransition(
+                              widget: SavingsPinScreen(
+                                args: registerArgs<SavingsPinArgs>(
+                                  AppRoutes.savingsWithdrawalToPin
+                                      .routeSplitter(),
+                                  state.extra,
+                                )!,
+                              ),
+                              direction: AxisDirection.up,
+                              pageKey: state.pageKey,
+                              durationInMillIs: 300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: AppRoutes.cards,
+            builder: (context, state) {
+              return const SizedBox.shrink();
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.loans,
+            builder: (context, state) {
+              return const LoanPage();
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.more,
+            builder: (context, state) {
+              // return const SizedBox.shrink();
+              return const MoreHomePage();
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+

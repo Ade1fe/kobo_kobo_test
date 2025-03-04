@@ -1,0 +1,2 @@
+/Users/taiwoadisa/Documents/GitHub/kobo_kobo/android/app/.cxx/RelWithDebInfo/4j515b1t/x86_64/CMakeFiles/edit_cache.dir
+/Users/taiwoadisa/Documents/GitHub/kobo_kobo/android/app/.cxx/RelWithDebInfo/4j515b1t/x86_64/CMakeFiles/rebuild_cache.dir
