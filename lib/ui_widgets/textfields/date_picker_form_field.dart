@@ -49,12 +49,10 @@ class DatePickerFormField extends StatelessWidget {
             firstDate: DateTime(2000),
             lastDate: DateTime(2101),
           );
-          if (selectedDate != null) {
-            final formattedDate = "${selectedDate.toLocal()}".split(' ')[0]; 
-            controller?.text = formattedDate;
-            onChanged?.call(formattedDate);
-          }
-        },
+          final formattedDate = "${selectedDate?.toLocal()}".split(' ')[0]; 
+          controller?.text = formattedDate;
+          onChanged?.call(formattedDate);
+                },
         child: Icon(
           Icons.calendar_today,
           color: AppColors.black.withOpacity(0.8),
