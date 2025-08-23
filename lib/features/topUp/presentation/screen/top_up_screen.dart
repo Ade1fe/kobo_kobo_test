@@ -391,7 +391,7 @@ class _TopUpScreenState extends State<TopUpScreen>
                       isToogleEnabled = value;
                     });
                   },
-                  activeColor: AppColors.appPrimaryButton,
+                  activeThumbColor: AppColors.appPrimaryButton,
                   activeTrackColor: AppColors.appPrimaryButton.withOpacity(0.5),
                 ),
               ],

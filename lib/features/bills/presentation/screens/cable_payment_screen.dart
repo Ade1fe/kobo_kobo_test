@@ -648,7 +648,7 @@ class _CableTopUpScreenState extends State<CableTopUpScreen> {
                       }
                     }
                   },
-                  activeColor: AppColors.appPrimaryButton,
+                  activeThumbColor: AppColors.appPrimaryButton,
                   activeTrackColor: AppColors.appPrimaryButton.withOpacity(0.5),
                 ),
               ],

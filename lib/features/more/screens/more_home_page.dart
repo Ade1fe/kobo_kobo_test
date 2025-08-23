@@ -193,7 +193,7 @@ class _MoreHomePageState extends State<MoreHomePage> {
                     onChanged: (bool value) {
                       _handleBiometricToggle(action['label'] as String, value);
                     },
-                    activeColor: AppColors.appPrimaryButton,
+                    activeThumbColor: AppColors.appPrimaryButton,
                     activeTrackColor:
                         AppColors.appPrimaryButton.withOpacity(0.5),
                   )

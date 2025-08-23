@@ -7,7 +7,6 @@ class AppTheme {
 
   static ThemeData _baseTheme(BuildContext context) => ThemeData(
         primaryColor: AppColors.appPrimaryColor,
-        indicatorColor: AppColors.appPrimaryColor,
         scaffoldBackgroundColor: AppColors.scaffold,
         textTheme: TextTheme(
           headlineLarge: const TextStyle(
@@ -135,7 +134,7 @@ class AppTheme {
             color: AppColors.borderColor,
             fontFamily: GoogleFonts.inter().fontFamily,
           ),
-        ),
+        ), tabBarTheme: const TabBarThemeData(indicatorColor: AppColors.appPrimaryColor),
       );
 
   static ThemeData defaultTheme(BuildContext context) =>
